@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { useUIStore } from '@/store/uiStore'
-import { VAT_RATES, IRPF_RATES, PAYMENT_METHODS, DEFAULTS } from '@/lib/constants'
+import { VAT_RATES, IRPF_RATES, PAYMENT_METHODS, DEFAULTS, FREE_TIER } from '@/lib/constants'
 import { calculateInvoiceTotals } from '@/lib/fiscal/totals'
 import { formatCurrency } from '@/lib/formatters'
 import { InvoiceSheetPreview } from '@/components/invoice/InvoiceSheetPreview'
@@ -94,6 +94,7 @@ export function InvoiceCreate() {
   const { clients, fetchClients } = useClients()
   const { products, fetchProducts } = useProducts()
   const invoiceStore = useInvoiceStore()
+  const { getNextInvoiceNumber, fetchInvoice } = invoiceStore
   const { generateInvoicePDF, generating } = usePDF()
 
   const isEditing = !!id
@@ -112,9 +113,9 @@ export function InvoiceCreate() {
   // Get next invoice number
   useEffect(() => {
     if (profile) {
-      setInvoiceNumber(invoiceStore.getNextInvoiceNumber(profile))
+      setInvoiceNumber(getNextInvoiceNumber(profile))
     }
-  }, [profile])
+  }, [profile, getNextInvoiceNumber])
 
   // Load clients & products
   useEffect(() => {
@@ -125,7 +126,7 @@ export function InvoiceCreate() {
   // Load invoice if editing
   useEffect(() => {
     if (id) {
-      invoiceStore.fetchInvoice(id).then((invoice) => {
+      fetchInvoice(id).then((invoice) => {
         if (!invoice) return
         setClientId(invoice.client_id || '')
         setIssueDate(invoice.issue_date || '')
@@ -147,7 +148,7 @@ export function InvoiceCreate() {
         }
       })
     }
-  }, [id])
+  }, [id, fetchInvoice])
 
   // Calculate totals
   const totals = calculateInvoiceTotals(lines, {
@@ -193,6 +194,22 @@ export function InvoiceCreate() {
       return
     }
 
+    // Check Free plan monthly invoice limit when creating new invoice
+    if (!isEditing && profile?.subscription_tier !== 'pro') {
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      const thisMonthInvoices = invoiceStore.invoices.filter(
+        (inv) => new Date(inv.created_at || inv.issue_date) >= startOfMonth
+      )
+      if (thisMonthInvoices.length >= FREE_TIER.maxInvoicesPerMonth) {
+        addToast(
+          `Has alcanzado el límite mensual de ${FREE_TIER.maxInvoicesPerMonth} facturas del plan gratuito`,
+          'error'
+        )
+        return
+      }
+    }
+
     setSaving(true)
 
     const invoiceData = {
@@ -220,6 +237,8 @@ export function InvoiceCreate() {
             postal_code: profile.postal_code,
             province: profile.province,
             email: profile.email,
+            bank_iban: profile.bank_iban,
+            bank_name: profile.bank_name,
           }
         : null,
       client_snapshot: selectedClient

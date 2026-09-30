@@ -28,6 +28,8 @@ export const useInvoiceStore = create((set, get) => ({
       const filters = get().filters
       if (filters.status) query = query.eq('status', filters.status)
       if (filters.clientId) query = query.eq('client_id', filters.clientId)
+      if (filters.dateFrom) query = query.gte('issue_date', filters.dateFrom)
+      if (filters.dateTo) query = query.lte('issue_date', filters.dateTo)
 
       const { data, error } = await query
       if (error) throw error

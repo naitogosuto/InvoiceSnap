@@ -15,10 +15,11 @@ const sizes = {
 }
 
 export const Button = forwardRef(
-  ({ variant = 'primary', size = 'md', className = '', children, disabled, loading, icon, ...props }, ref) => {
+  ({ variant = 'primary', size = 'md', className = '', type = 'button', children, disabled, loading, icon, ...props }, ref) => {
     return (
       <button
         ref={ref}
+        type={type}
         disabled={disabled || loading}
         className={`
           inline-flex items-center justify-center gap-2 rounded-lg font-medium

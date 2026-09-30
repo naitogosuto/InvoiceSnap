@@ -7,6 +7,7 @@ import { Select } from '@/components/ui/Select'
 import { useUIStore } from '@/store/uiStore'
 import { VAT_RATES, IRPF_RATES, INVOICE_FORMATS } from '@/lib/constants'
 import { getTaxIDValidationError } from '@/lib/formatters'
+import { redirectToCheckout, redirectToCustomerPortal, STRIPE_PRICES } from '@/lib/stripe'
 
 export function Settings() {
   const profile = useAuthStore((s) => s.profile)
@@ -34,6 +35,22 @@ export function Settings() {
     payment_notes: '',
   })
   const [nifError, setNifError] = useState('')
+  const [billingInterval, setBillingInterval] = useState('monthly')
+  const [billingLoading, setBillingLoading] = useState(false)
+  const isPro = profile?.subscription_tier === 'pro'
+
+  // Detectar parámetros de retorno de Stripe Checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('session') === 'success') {
+      addToast('¡Suscripción activada! Bienvenido a InvoiceSnap Pro 🎉', 'success')
+      // Limpiar URL
+      window.history.replaceState({}, '', '/settings')
+    } else if (params.get('session') === 'cancel') {
+      addToast('Suscripción cancelada. Puedes intentarlo cuando quieras.', 'info')
+      window.history.replaceState({}, '', '/settings')
+    }
+  }, [addToast])
 
   useEffect(() => {
     if (profile) {
@@ -59,6 +76,33 @@ export function Settings() {
       })
     }
   }, [profile])
+
+  const handleCheckout = async () => {
+    const priceId = billingInterval === 'yearly' ? STRIPE_PRICES.yearly : STRIPE_PRICES.monthly
+    if (!priceId) {
+      addToast('Error: Los precios de Stripe no están configurados', 'error')
+      return
+    }
+    setBillingLoading(true)
+    try {
+      await redirectToCheckout(priceId)
+    } catch (err) {
+      addToast(err.message || 'Error al iniciar el pago', 'error')
+    } finally {
+      setBillingLoading(false)
+    }
+  }
+
+  const handlePortal = async () => {
+    setBillingLoading(true)
+    try {
+      await redirectToCustomerPortal()
+    } catch (err) {
+      addToast(err.message || 'Error al abrir el portal', 'error')
+    } finally {
+      setBillingLoading(false)
+    }
+  }
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -97,6 +141,106 @@ export function Settings() {
   return (
     <div className="space-y-6 max-w-2xl">
       <CardHeader title="Ajustes" subtitle="Configura tu perfil fiscal y preferencias" />
+
+      {/* Plan y Suscripción */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Plan y suscripción</h3>
+          {isPro ? (
+            <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary-100 text-primary-700 text-xs font-semibold rounded-full">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+              Pro activo
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full">
+              Plan Gratuito
+            </span>
+          )}
+        </div>
+
+        {isPro ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Disfrutas de todas las funciones de InvoiceSnap: facturas ilimitadas, clientes ilimitados, plantillas premium y más.
+            </p>
+            {profile?.subscription_ends_at && (
+              <p className="text-xs text-gray-500">
+                Tu suscripción se renueva el{' '}
+                <span className="font-medium text-gray-700">
+                  {new Date(profile.subscription_ends_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </p>
+            )}
+            <Button variant="secondary" onClick={handlePortal} loading={billingLoading}>
+              Gestionar suscripción
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Estás en el plan gratuito: 5 facturas/mes, 10 clientes. Actualiza a Pro para desbloquear todo.
+            </p>
+
+            {/* Toggle mensual/anual */}
+            <div className="flex items-center justify-center gap-3 p-1 bg-gray-100 rounded-lg w-fit">
+              <button
+                type="button"
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                  billingInterval === 'monthly'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                onClick={() => setBillingInterval('monthly')}
+              >
+                Mensual
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                  billingInterval === 'yearly'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                onClick={() => setBillingInterval('yearly')}
+              >
+                Anual
+                <span className="ml-1 text-xs text-green-600 font-semibold">-29%</span>
+              </button>
+            </div>
+
+            {/* Precio */}
+            <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-xl p-6 border border-primary-100">
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-gray-900">
+                  {billingInterval === 'monthly' ? '7 €' : '60 €'}
+                </span>
+                <span className="text-sm text-gray-500">
+                  /{billingInterval === 'monthly' ? 'mes' : 'año'}
+                </span>
+              </div>
+              {billingInterval === 'yearly' && (
+                <p className="text-xs text-green-600 mt-1">Ahorras 24 € al año (5 €/mes)</p>
+              )}
+              <ul className="mt-4 space-y-2 text-sm text-gray-600">
+                {['Facturas ilimitadas', 'Clientes ilimitados', 'Plantillas premium', 'Logo y colores personalizados', 'Exportar CSV/Excel'].map((item) => (
+                  <li key={item} className="flex items-center gap-2">
+                    <svg className="h-4 w-4 text-green-500 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <Button onClick={handleCheckout} loading={billingLoading} size="lg" className="w-full">
+              Actualizar a Pro →
+            </Button>
+          </div>
+        )}
+      </Card>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Profile */}

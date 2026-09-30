@@ -28,7 +28,7 @@ export function InvoiceSheetPreview({ sender, client, lines = [], totals, meta =
             {(sender?.postal_code || sender?.city || sender?.province) && (
               <p>
                 {[
-                  sender?.postal_code ? `CP:${sender.postal_code.replace(/^cp:?\s*/i, '').trim()}` : null,
+                  sender?.postal_code ? `CP:${String(sender.postal_code).replace(/^cp:?\s*/i, '').trim()}` : null,
                   sender?.city,
                   sender?.province,
                 ]
@@ -73,7 +73,7 @@ export function InvoiceSheetPreview({ sender, client, lines = [], totals, meta =
             {(client?.postal_code || client?.city) && (
               <p>
                 <span className="font-bold">CP:</span>{' '}
-                {[client?.postal_code ? client.postal_code.replace(/^cp:?\s*/i, '').trim() : null, client?.city]
+                {[client?.postal_code ? String(client.postal_code).replace(/^cp:?\s*/i, '').trim() : null, client?.city]
                   .filter(Boolean)
                   .join(' ')}
               </p>

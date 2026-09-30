@@ -246,7 +246,7 @@ export function Landing() {
               ))}
             </ul>
             <Link
-              to="/register"
+              to="/register?plan=pro"
               className="block w-full text-center px-4 py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/25"
             >
               Empezar prueba gratis →

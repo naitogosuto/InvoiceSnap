@@ -11,12 +11,17 @@ node_modules
 dist
 dist-ssr
 *.local
+*.local.json
 .env
+.env*.local
+.supabase/
+supabase/.temp/
 
-# Editor directories and files
+# Editor & AI settings
 .vscode/*
 !.vscode/extensions.json
 .idea
+.claude/
 .DS_Store
 *.suo
 *.ntvs*

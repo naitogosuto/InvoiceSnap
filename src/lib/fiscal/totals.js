@@ -22,8 +22,8 @@ export function calculateInvoiceTotals(lines, options = {}) {
       totalVat: 0,
       totalIrpf: 0,
       total: 0,
-      vatGroups: {},
-      irpfGroups: {},
+      vatGroups: [],
+      irpfGroups: [],
     }
   }
 
@@ -33,9 +33,10 @@ export function calculateInvoiceTotals(lines, options = {}) {
 
   for (const line of lines) {
     const quantity = parseFloat(line.quantity) || 0
-    const unitPrice = parseFloat(line.unitPrice) || 0
-    const vatRate = parseFloat(line.vatRate) ?? 0
-    const irpfRate = line.irpfRate !== undefined ? parseFloat(line.irpfRate) : defaultIrpfRate
+    const unitPrice = parseFloat(line.unitPrice ?? line.unit_price) || 0
+    const vatRate = parseFloat(line.vatRate ?? line.vat_rate) || 0
+    const rawIrpf = line.irpfRate ?? line.irpf_rate
+    const irpfRate = rawIrpf !== undefined && rawIrpf !== null && rawIrpf !== '' ? (parseFloat(rawIrpf) || 0) : defaultIrpfRate
 
     const lineSubtotal = round2(quantity * unitPrice)
     const vatAmount = round2(lineSubtotal * (vatRate / 100))
@@ -59,7 +60,9 @@ export function calculateInvoiceTotals(lines, options = {}) {
   }
 
   const subtotal = round2(lines.reduce((sum, l) => {
-    return sum + round2((parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0))
+    const qty = parseFloat(l.quantity) || 0
+    const price = parseFloat(l.unitPrice ?? l.unit_price) || 0
+    return sum + round2(qty * price)
   }, 0))
 
   const totalVat = round2(Object.values(vatGroups).reduce((sum, g) => sum + g.vat, 0))

@@ -2,10 +2,11 @@
  * Format a number as EUR currency
  */
 export function formatCurrency(amount) {
+  const num = parseFloat(amount)
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',
     currency: 'EUR',
-  }).format(amount)
+  }).format(isNaN(num) ? 0 : num)
 }
 
 /**
@@ -13,7 +14,9 @@ export function formatCurrency(amount) {
  */
 export function formatDate(dateString) {
   if (!dateString) return ''
-  return new Date(dateString + 'T12:00:00').toLocaleDateString('es-ES', {
+  const parsedDate = dateString.includes('T') ? new Date(dateString) : new Date(dateString + 'T12:00:00')
+  if (isNaN(parsedDate.getTime())) return ''
+  return parsedDate.toLocaleDateString('es-ES', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -25,7 +28,9 @@ export function formatDate(dateString) {
  */
 export function formatDateShort(dateString) {
   if (!dateString) return ''
-  return new Date(dateString + 'T12:00:00').toLocaleDateString('es-ES', {
+  const parsedDate = dateString.includes('T') ? new Date(dateString) : new Date(dateString + 'T12:00:00')
+  if (isNaN(parsedDate.getTime())) return ''
+  return parsedDate.toLocaleDateString('es-ES', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
