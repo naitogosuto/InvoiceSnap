@@ -1,0 +1,32 @@
+name: Security Review
+
+permissions:
+  pull-requests: write # Necesario para publicar los hallazgos como comentarios en el PR
+  contents: read
+
+on:
+  pull_request:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+
+      # SHA fijado para evitar el riesgo de cadena de suministro de una ref móvil.
+      # Para actualizar: `git ls-remote https://github.com/anthropics/claude-code-security-review.git refs/heads/main`
+      - uses: anthropics/claude-code-security-review@0c6a49f1fa56a1d472575da86a94dbc1edb78eda
+        with:
+          comment-pr: true
+          claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+          # OJO: NO excluyas supabase/migrations. Las políticas RLS viven ahí y una
+          # policy demasiado permisiva es el fallo de seguridad más típico en Supabase.
+          exclude-directories: 'node_modules,dist,.git'
+          # claude-model: claude-opus-4-1-20250805   # valor por defecto
+          # claudecode-timeout: 20
+          # run-every-commit: false
+          # false-positive-filtering-instructions: .github/security-review-false-positives.md
+          # custom-security-scan-instructions: .github/security-review-custom.md

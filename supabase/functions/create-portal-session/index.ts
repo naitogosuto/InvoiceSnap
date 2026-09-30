@@ -1,13 +1,48 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14?target=deno'
 
-// Configuración de cabeceras CORS
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Orígenes permitidos en desarrollo local.
+const DEV_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+]
+
+// Orígenes de producción permitidos (separados por coma en la variable ALLOWED_ORIGIN).
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGIN') ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false
+  return DEV_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes(origin)
+}
+
+function isAllowedRedirectUrl(url: string): boolean {
+  try {
+    return isAllowedOrigin(new URL(url).origin)
+  } catch {
+    return false
+  }
+}
+
+function corsHeadersFor(origin: string | null): Record<string, string> {
+  if (!isAllowedOrigin(origin)) {
+    return {}
+  }
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get('Origin')
+  const corsHeaders = corsHeadersFor(origin)
+
   // Manejo de la solicitud pre-flight (CORS)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -30,8 +65,16 @@ Deno.serve(async (req) => {
       throw new Error('Falta el parámetro returnUrl')
     }
 
+    // Validar la URL de retorno (evitar open redirect)
+    if (!isAllowedRedirectUrl(returnUrl)) {
+      throw new Error('URL de retorno no permitida')
+    }
+
     // Autenticar al usuario utilizando el token JWT proporcionado
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      throw new Error('No autorizado')
+    }
     const supabase = createClient(
       supabaseUrl,
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',

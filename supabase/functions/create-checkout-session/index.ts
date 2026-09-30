@@ -1,13 +1,54 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@14?target=deno'
 
-// Configuración de cabeceras CORS
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Orígenes permitidos en desarrollo local.
+const DEV_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+]
+
+// Orígenes de producción permitidos (separados por coma en la variable ALLOWED_ORIGIN).
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGIN') ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+
+// Precios permitidos para suscripción (configurados como secrets de la Edge Function).
+const ALLOWED_PRICES = [
+  Deno.env.get('STRIPE_PRICE_ID_MONTHLY') ?? '',
+  Deno.env.get('STRIPE_PRICE_ID_YEARLY') ?? '',
+].filter(Boolean)
+
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false
+  return DEV_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes(origin)
+}
+
+function isAllowedRedirectUrl(url: string): boolean {
+  try {
+    return isAllowedOrigin(new URL(url).origin)
+  } catch {
+    return false
+  }
+}
+
+function corsHeadersFor(origin: string | null): Record<string, string> {
+  if (!isAllowedOrigin(origin)) {
+    return {}
+  }
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get('Origin')
+  const corsHeaders = corsHeadersFor(origin)
+
   // Manejo de la solicitud pre-flight (CORS)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -31,8 +72,21 @@ Deno.serve(async (req) => {
       throw new Error('Faltan parámetros requeridos: priceId, successUrl o cancelUrl')
     }
 
+    // Validar que el precio pertenece a los planes permitidos
+    if (ALLOWED_PRICES.length === 0 || !ALLOWED_PRICES.includes(priceId)) {
+      throw new Error('Precio no válido')
+    }
+
+    // Validar las URLs de redirección (evitar open redirect)
+    if (!isAllowedRedirectUrl(successUrl) || !isAllowedRedirectUrl(cancelUrl)) {
+      throw new Error('URL de redirección no permitida')
+    }
+
     // Inicializar cliente de Supabase con los headers de la solicitud para verificar el usuario
-    const authHeader = req.headers.get('Authorization')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      throw new Error('No autorizado')
+    }
     const supabase = createClient(
       supabaseUrl,
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
