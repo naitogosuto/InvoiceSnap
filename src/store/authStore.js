@@ -93,18 +93,9 @@ export const useAuthStore = create((set, get) => ({
       })
       if (error) throw error
 
-      // Try to create profile — if user is unconfirmed, the trigger
-      // on_auth_user_created already handled it
-      if (data.user) {
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          id: data.user.id,
-          full_name: fullName,
-          email: email,
-        }, { onConflict: 'id' })
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-        }
-      }
+      // El perfil lo crea el trigger handle_new_user() sobre auth.users
+      // (SECURITY DEFINER). No lo insertamos desde el cliente porque la tabla
+      // profiles no tiene política RLS de INSERT por diseño.
 
       // If session is null → email confirmation is ON
       if (!data.session) {
