@@ -5,6 +5,13 @@ export const STRIPE_PRICES = {
   yearly: import.meta.env.VITE_STRIPE_PRICE_ID_YEARLY || '',
 }
 
+function generateIdempotencyKey() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 /**
  * Inicia el flujo de Checkout de Stripe llamando a la Edge Function
  */
@@ -27,6 +34,7 @@ export async function redirectToCheckout(priceId) {
           priceId,
           successUrl: `${window.location.origin}/settings?session=success`,
           cancelUrl: `${window.location.origin}/settings?session=cancel`,
+          idempotencyKey: generateIdempotencyKey(),
         }),
       }
     )

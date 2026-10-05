@@ -182,6 +182,59 @@ export const useAuthStore = create((set, get) => ({
   },
 
   /**
+   * Request a password reset email
+   */
+  resetPassword: async (email) => {
+    try {
+      set({ loading: true, error: null })
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset`,
+      })
+      if (error) throw error
+      return { success: true }
+    } catch (error) {
+      set({ error: error.message })
+      return { success: false, error: error.message }
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  /**
+   * Update the password of the authenticated user
+   */
+  updatePassword: async (newPassword) => {
+    try {
+      set({ loading: true, error: null })
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      return { success: true }
+    } catch (error) {
+      set({ error: error.message })
+      return { success: false, error: error.message }
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  /**
+   * Update the email of the authenticated user (requires confirmation)
+   */
+  updateEmail: async (newEmail) => {
+    try {
+      set({ loading: true, error: null })
+      const { error } = await supabase.auth.updateUser({ email: newEmail })
+      if (error) throw error
+      return { success: true }
+    } catch (error) {
+      set({ error: error.message })
+      return { success: false, error: error.message }
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  /**
    * Fetch user profile from Supabase
    */
   fetchProfile: async () => {

@@ -21,6 +21,34 @@ const ALLOWED_PRICES = [
   Deno.env.get('STRIPE_PRICE_ID_YEARLY') ?? '',
 ].filter(Boolean)
 
+// Rate limiting best-effort por IP (sliding window en memoria).
+// Nota: cada aislado de Edge Function tiene su propio Map, por lo que esto protege
+// contra ráfagas simples pero NO es un límite global. Para un límite distribuido
+// usa Cloudflare WAF / rate limiting rules o un almacén compartido (KV/Durable Object).
+const RATE_LIMIT = 10
+const RATE_WINDOW_MS = 60_000
+const rateHits = new Map<string, number[]>()
+
+function clientIp(req: Request): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  )
+}
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now()
+  const hits = (rateHits.get(key) ?? []).filter((t) => now - t < RATE_WINDOW_MS)
+  if (hits.length >= RATE_LIMIT) {
+    rateHits.set(key, hits)
+    return true
+  }
+  hits.push(now)
+  rateHits.set(key, hits)
+  return false
+}
+
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false
   return DEV_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes(origin)
@@ -54,6 +82,14 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Rate limiting
+  if (isRateLimited(clientIp(req))) {
+    return new Response(JSON.stringify({ error: 'Demasiadas solicitudes. Inténtalo más tarde.' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 429,
+    })
+  }
+
   try {
     // Obtener variables de entorno
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
@@ -67,7 +103,7 @@ Deno.serve(async (req) => {
     })
 
     // Extraer parámetros del cuerpo de la petición
-    const { priceId, successUrl, cancelUrl } = await req.json()
+    const { priceId, successUrl, cancelUrl, idempotencyKey } = await req.json()
     if (!priceId || !successUrl || !cancelUrl) {
       throw new Error('Faltan parámetros requeridos: priceId, successUrl o cancelUrl')
     }
@@ -115,14 +151,18 @@ Deno.serve(async (req) => {
 
     let customerId = profile?.stripe_customer_id
 
-    // Si el usuario no tiene un cliente en Stripe, lo creamos
+    // Si el usuario no tiene un cliente en Stripe, lo creamos.
+    // Idempotency key estable por usuario evita crear customers duplicados en reintentos/concurrencia.
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: {
-          supabase_user_id: user.id
-        }
-      })
+      const customer = await stripe.customers.create(
+        {
+          email: user.email,
+          metadata: {
+            supabase_user_id: user.id,
+          },
+        },
+        { idempotencyKey: `cust_${user.id}` }
+      )
       customerId = customer.id
 
       // Guardar el nuevo stripe_customer_id en la base de datos
@@ -136,19 +176,23 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Crear la sesión de Checkout de Stripe
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: 'subscription',
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-    })
+    // Crear la sesión de Checkout de Stripe.
+    // Si el cliente envía una idempotency key, evitamos sesiones duplicadas ante doble envío.
+    const session = await stripe.checkout.sessions.create(
+      {
+        customer: customerId,
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: successUrl,
+        cancel_url: cancelUrl,
+      },
+      idempotencyKey ? { idempotencyKey } : undefined
+    )
 
     // Devolver la URL de la sesión
     return new Response(JSON.stringify({ url: session.url }), {

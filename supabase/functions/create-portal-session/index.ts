@@ -15,6 +15,32 @@ const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGIN') ?? '')
   .map((s) => s.trim())
   .filter(Boolean)
 
+// Rate limiting best-effort por IP (sliding window en memoria).
+// Nota: protege contra ráfagas simples pero no es un límite global distribuido.
+const RATE_LIMIT = 20
+const RATE_WINDOW_MS = 60_000
+const rateHits = new Map<string, number[]>()
+
+function clientIp(req: Request): string {
+  return (
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  )
+}
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now()
+  const hits = (rateHits.get(key) ?? []).filter((t) => now - t < RATE_WINDOW_MS)
+  if (hits.length >= RATE_LIMIT) {
+    rateHits.set(key, hits)
+    return true
+  }
+  hits.push(now)
+  rateHits.set(key, hits)
+  return false
+}
+
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false
   return DEV_ORIGINS.includes(origin) || ALLOWED_ORIGINS.includes(origin)
@@ -46,6 +72,14 @@ Deno.serve(async (req) => {
   // Manejo de la solicitud pre-flight (CORS)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+
+  // Rate limiting
+  if (isRateLimited(clientIp(req))) {
+    return new Response(JSON.stringify({ error: 'Demasiadas solicitudes. Inténtalo más tarde.' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 429,
+    })
   }
 
   try {

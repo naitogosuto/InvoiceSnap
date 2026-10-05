@@ -12,6 +12,8 @@ import { redirectToCheckout, redirectToCustomerPortal, STRIPE_PRICES } from '@/l
 export function Settings() {
   const profile = useAuthStore((s) => s.profile)
   const updateProfile = useAuthStore((s) => s.updateProfile)
+  const updatePassword = useAuthStore((s) => s.updatePassword)
+  const updateEmail = useAuthStore((s) => s.updateEmail)
   const addToast = useUIStore((s) => s.addToast)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -37,6 +39,10 @@ export function Settings() {
   const [nifError, setNifError] = useState('')
   const [billingInterval, setBillingInterval] = useState('monthly')
   const [billingLoading, setBillingLoading] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [securityLoading, setSecurityLoading] = useState(false)
   const isPro = profile?.subscription_tier === 'pro'
 
   // Detectar parámetros de retorno de Stripe Checkout
@@ -109,6 +115,41 @@ export function Settings() {
     if (field === 'nif') {
       const error = getTaxIDValidationError(value)
       setNifError(error || '')
+    }
+  }
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    if (newPassword.length < 6) {
+      addToast('La contraseña debe tener al menos 6 caracteres', 'error')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      addToast('Las contraseñas no coinciden', 'error')
+      return
+    }
+    setSecurityLoading(true)
+    const result = await updatePassword(newPassword)
+    setSecurityLoading(false)
+    if (result.success) {
+      setNewPassword('')
+      setConfirmPassword('')
+      addToast('Contraseña actualizada', 'success')
+    } else {
+      addToast(result.error || 'Error al actualizar la contraseña', 'error')
+    }
+  }
+
+  const handleChangeEmail = async (e) => {
+    e.preventDefault()
+    if (!newEmail) return
+    setSecurityLoading(true)
+    const result = await updateEmail(newEmail)
+    setSecurityLoading(false)
+    if (result.success) {
+      addToast('Te hemos enviado un email de confirmación a la nueva dirección', 'success')
+    } else {
+      addToast(result.error || 'Error al actualizar el email', 'error')
     }
   }
 
@@ -420,6 +461,53 @@ export function Settings() {
           </Button>
         </div>
       </form>
+
+      <Card>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Seguridad</h3>
+        <div className="space-y-6">
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <p className="text-sm font-medium text-gray-700">Cambiar contraseña</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Nueva contraseña"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                autoComplete="new-password"
+              />
+              <Input
+                label="Confirmar contraseña"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repite la contraseña"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button type="submit" loading={securityLoading}>Actualizar contraseña</Button>
+            </div>
+          </form>
+
+          <div className="border-t border-gray-200 pt-6">
+            <form onSubmit={handleChangeEmail} className="space-y-4">
+              <p className="text-sm font-medium text-gray-700">Cambiar email</p>
+              <Input
+                label="Nuevo email"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="nuevo@email.com"
+                autoComplete="email"
+              />
+              <div className="flex justify-end">
+                <Button type="submit" loading={securityLoading}>Actualizar email</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Card>
     </div>
   )
 }

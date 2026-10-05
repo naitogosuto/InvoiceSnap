@@ -7,11 +7,13 @@ import { Card } from '@/components/ui/Card'
 
 export function Login() {
   const navigate = useNavigate()
-  const { signIn, signInWithGoogle, resendConfirmation, loading, error, needsEmailConfirmation, clearError } = useAuthStore()
+  const { signIn, signInWithGoogle, resendConfirmation, resetPassword, loading, error, needsEmailConfirmation, clearError } = useAuthStore()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [formError, setFormError] = useState('')
   const [resending, setResending] = useState(false)
+  const [forgotMode, setForgotMode] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -33,6 +35,15 @@ export function Login() {
     setResending(true)
     await resendConfirmation(email)
     setResending(false)
+  }
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault()
+    if (!email) return
+    const result = await resetPassword(email)
+    if (result.success) {
+      setResetSent(true)
+    }
   }
 
   const handleGoogleSignIn = async () => {
@@ -71,31 +82,71 @@ export function Login() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@email.com"
-              required
-              autoComplete="email"
-            />
+          {forgotMode ? (
+            <form onSubmit={handleForgotSubmit} className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Introduce tu email y te enviaremos un enlace para restablecer tu contraseña.
+              </p>
+              {resetSent && (
+                <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3">
+                  Si existe una cuenta con ese email, recibirás un enlace de recuperación.
+                </div>
+              )}
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com"
+                required
+                autoComplete="email"
+              />
+              <Button type="submit" loading={loading} className="w-full" size="lg">
+                Enviar enlace de recuperación
+              </Button>
+              <button
+                type="button"
+                onClick={() => { setForgotMode(false); setResetSent(false) }}
+                className="w-full text-center text-sm text-primary-600 font-medium hover:text-primary-700"
+              >
+                Volver a iniciar sesión
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com"
+                required
+                autoComplete="email"
+              />
 
-            <Input
-              label="Contraseña"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              autoComplete="current-password"
-            />
+              <Input
+                label="Contraseña"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                autoComplete="current-password"
+              />
 
-            <Button type="submit" loading={loading} className="w-full" size="lg">
-              Iniciar sesión
-            </Button>
-          </form>
+              <Button type="submit" loading={loading} className="w-full" size="lg">
+                Iniciar sesión
+              </Button>
+
+              <button
+                type="button"
+                onClick={() => setForgotMode(true)}
+                className="w-full text-center text-sm text-primary-600 font-medium hover:text-primary-700"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </form>
+          )}
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">

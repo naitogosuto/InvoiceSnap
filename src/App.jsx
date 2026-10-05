@@ -16,6 +16,7 @@ import { Clients } from '@/pages/Clients'
 import { Products } from '@/pages/Products'
 import { Settings } from '@/pages/Settings'
 import { AuthCallback } from '@/pages/AuthCallback'
+import { ResetPassword } from '@/pages/ResetPassword'
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -188,6 +189,9 @@ export function App() {
 
         {/* Auth callback (Google OAuth) */}
         <Route path="/auth/callback" element={<AuthCallback />} />
+
+        {/* Password reset */}
+        <Route path="/auth/reset" element={<ResetPassword />} />
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/" replace />} />
