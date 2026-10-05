@@ -8,6 +8,7 @@ import { useUIStore } from '@/store/uiStore'
 import { VAT_RATES, IRPF_RATES, INVOICE_FORMATS } from '@/lib/constants'
 import { getTaxIDValidationError } from '@/lib/formatters'
 import { redirectToCheckout, redirectToCustomerPortal, STRIPE_PRICES } from '@/lib/stripe'
+import { isProProfile } from '@/lib/plan'
 
 export function Settings() {
   const profile = useAuthStore((s) => s.profile)
@@ -43,7 +44,7 @@ export function Settings() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [newEmail, setNewEmail] = useState('')
   const [securityLoading, setSecurityLoading] = useState(false)
-  const isPro = profile?.subscription_tier === 'pro'
+  const isPro = isProProfile(profile)
 
   // Detectar parámetros de retorno de Stripe Checkout
   useEffect(() => {
@@ -204,9 +205,11 @@ export function Settings() {
         {isPro ? (
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Disfrutas de todas las funciones de InvoiceSnap: facturas ilimitadas, clientes ilimitados, plantillas premium y más.
+              {profile?.is_admin
+                ? 'Cuenta de administrador: acceso Pro completo sin suscripción.'
+                : 'Disfrutas de todas las funciones de InvoiceSnap: facturas ilimitadas, clientes ilimitados, plantillas premium y más.'}
             </p>
-            {profile?.subscription_ends_at && (
+            {!profile?.is_admin && profile?.subscription_ends_at && (
               <p className="text-xs text-gray-500">
                 Tu suscripción se renueva el{' '}
                 <span className="font-medium text-gray-700">
@@ -214,9 +217,11 @@ export function Settings() {
                 </span>
               </p>
             )}
-            <Button variant="secondary" onClick={handlePortal} loading={billingLoading}>
-              Gestionar suscripción
-            </Button>
+            {!profile?.is_admin && (
+              <Button variant="secondary" onClick={handlePortal} loading={billingLoading}>
+                Gestionar suscripción
+              </Button>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

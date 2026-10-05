@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { formatCurrency, formatDateShort } from '@/lib/formatters'
 import { FREE_TIER } from '@/lib/constants'
+import { isProProfile } from '@/lib/plan'
 
 /**
  * Barra de progreso horizontal simple
@@ -26,7 +27,7 @@ function ProgressBar({ value, max, color = 'bg-primary-500' }) {
 
 export function Dashboard() {
   const profile = useAuthStore((s) => s.profile)
-  const isPro = profile?.subscription_tier === 'pro'
+  const isPro = isProProfile(profile)
   const { invoices, loading, loadInvoices } = useInvoices()
   const { clients, fetchClients } = useClients()
 

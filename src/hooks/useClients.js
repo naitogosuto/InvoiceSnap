@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { FREE_TIER } from '@/lib/constants'
+import { isProProfile } from '@/lib/plan'
 
 export function useClients() {
   const user = useAuthStore((s) => s.user)
@@ -33,7 +34,7 @@ export function useClients() {
     if (!user) return { success: false, error: 'No user logged in' }
 
     // Check free tier limit
-    const isPro = profile?.subscription_tier === 'pro'
+    const isPro = isProProfile(profile)
     if (!isPro && clients.length >= FREE_TIER.maxClients) {
       return {
         success: false,

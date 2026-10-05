@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore'
 import { Sidebar } from '@/components/ui/Sidebar'
 import { ToastContainer } from '@/components/ui/Toast'
 import { useUIStore } from '@/store/uiStore'
+import { isProProfile } from '@/lib/plan'
 
 // Pages
 import { Landing } from '@/pages/Landing'
@@ -49,6 +50,7 @@ function ProtectedLayout({ children }) {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen)
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
   const profile = useAuthStore((s) => s.profile)
+  const isPro = isProProfile(profile)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -73,13 +75,13 @@ function ProtectedLayout({ children }) {
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">
               Plan:{' '}
-              {profile?.subscription_tier === 'pro' ? (
+              {isPro ? (
                 <span className="font-medium text-primary-600">Pro</span>
               ) : (
                 <span className="font-medium text-gray-700">Gratuito</span>
               )}
             </span>
-            {profile?.subscription_tier !== 'pro' && (
+            {!isPro && (
               <Link
                 to="/settings"
                 className="text-xs text-primary-600 hover:text-primary-700 font-medium underline"

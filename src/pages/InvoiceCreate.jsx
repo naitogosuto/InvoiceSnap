@@ -14,6 +14,7 @@ import { useUIStore } from '@/store/uiStore'
 import { VAT_RATES, IRPF_RATES, PAYMENT_METHODS, DEFAULTS, FREE_TIER } from '@/lib/constants'
 import { calculateInvoiceTotals } from '@/lib/fiscal/totals'
 import { formatCurrency } from '@/lib/formatters'
+import { isProProfile } from '@/lib/plan'
 import { InvoiceSheetPreview } from '@/components/invoice/InvoiceSheetPreview'
 
 const emptyLine = {
@@ -195,7 +196,7 @@ export function InvoiceCreate() {
     }
 
     // Check Free plan monthly invoice limit when creating new invoice
-    if (!isEditing && profile?.subscription_tier !== 'pro') {
+    if (!isEditing && !isProProfile(profile)) {
       const now = new Date()
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
       const thisMonthInvoices = invoiceStore.invoices.filter(

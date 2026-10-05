@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/Select'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { formatCurrency, formatDateShort } from '@/lib/formatters'
+import { isProProfile } from '@/lib/plan'
 
 const statusOptions = [
   { value: '', label: 'Todos los estados' },
@@ -91,6 +92,7 @@ function StatusCell({ value, onChange }) {
 export function InvoiceList() {
   const navigate = useNavigate()
   const profile = useAuthStore((s) => s.profile)
+  const isPro = isProProfile(profile)
   const addToast = useUIStore((s) => s.addToast)
   const { invoices, loading, loadInvoices, updateStatus, deleteInvoice } = useInvoices()
   const { generateInvoicePDF, generating } = usePDF()
@@ -167,7 +169,7 @@ export function InvoiceList() {
       <CardHeader
         title="Facturas"
         subtitle={
-          profile?.subscription_tier === 'free'
+          !isPro
             ? `${thisMonthInvoices}/5 facturas este mes`
             : `${invoices.length} facturas`
         }
@@ -184,7 +186,7 @@ export function InvoiceList() {
       />
 
       {/* Monthly limit warning */}
-      {profile?.subscription_tier === 'free' && thisMonthInvoices >= 5 && (
+      {!isPro && thisMonthInvoices >= 5 && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm rounded-lg px-4 py-3">
           Has alcanzado el límite de 5 facturas este mes.{' '}
           <Link to="/settings" className="font-medium underline">

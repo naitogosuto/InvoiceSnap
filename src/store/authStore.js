@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
+import { isProProfile } from '@/lib/plan'
 
 export const useAuthStore = create((set, get) => ({
   user: null,
@@ -298,7 +299,7 @@ export const useAuthStore = create((set, get) => ({
    */
   isPro: () => {
     const profile = get().profile
-    return profile?.subscription_tier === 'pro'
+    return isProProfile(profile)
   },
 
   clearError: () => set({ error: null, needsEmailConfirmation: false }),

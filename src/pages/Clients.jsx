@@ -7,6 +7,7 @@ import { Modal } from '@/components/ui/Modal'
 import { useUIStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
 import { FREE_TIER } from '@/lib/constants'
+import { isProProfile } from '@/lib/plan'
 
 const defaultClient = {
   name: '',
@@ -28,7 +29,7 @@ export function Clients() {
   const [formData, setFormData] = useState(defaultClient)
   const [saving, setSaving] = useState(false)
 
-  const isPro = profile?.subscription_tier === 'pro'
+  const isPro = isProProfile(profile)
   const atClientLimit = !isPro && clients.length >= FREE_TIER.maxClients
 
   useEffect(() => {
